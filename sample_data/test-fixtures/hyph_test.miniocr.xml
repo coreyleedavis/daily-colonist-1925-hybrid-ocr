@@ -1,0 +1,6 @@
+<p xml:id="hyph_test" wh="1000 1000">
+<b>
+<l><w x="10 10 80 20">the</w> <w x="100 10 120 20">extraordi-</w></l>
+<l><w x="10 40 90 20">nary</w> <w x="110 40 100 20">event</w></l>
+</b>
+</p>

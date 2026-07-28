@@ -1,0 +1,191 @@
+<!doctype html><html><head><meta charset="utf-8">
+<title>Colonist 1925 — Comparative OCR Report</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+body{font-family:Georgia,serif;max-width:72em;margin:0 auto;padding:0 1.4em 4em;color:#191919;line-height:1.5}
+h1{font-size:1.6em;margin:.9em 0 .1em;font-weight:normal}
+h2{font-size:1.15em;margin:2.2em 0 .3em;border-bottom:1px solid #ddd;padding-bottom:.2em}
+.sub{color:#666;font-size:.95em}.rule{border:none;border-top:2px solid #35619e;margin:.6em 0 1em}
+.note{color:#777;font-size:.85em;line-height:1.5}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+.chartbox{position:relative;height:300px}
+table{border-collapse:collapse;font-size:.92em}
+th{text-align:left;font-weight:normal;color:#666;border-bottom:1px solid #ccc;padding:4px 14px 4px 0}
+td{padding:4px 14px 4px 0;border-bottom:1px solid #eee}
+td.n,th.n{text-align:right}
+.bar{display:inline-block;height:10px;background:#35619e;vertical-align:middle;margin-left:6px;border-radius:2px}
+input[type=text]{font-family:Georgia,serif;font-size:1.05em;padding:6px 10px;border:1px solid #b9b6ae;border-radius:4px;width:18em}
+button{font-family:Georgia,serif;font-size:1em;padding:6px 14px;border:1px solid #35619e;background:#35619e;color:#fff;border-radius:4px;cursor:pointer}
+select{font-family:Georgia,serif;font-size:.95em;padding:4px}
+.tag{font-size:.72em;background:#dce6f5;border-radius:3px;padding:1px 6px;color:#333}
+a{color:#246}
+.varcol{font-family:Menlo,monospace;font-size:.82em;line-height:1.6}
+</style></head><body>
+<p style="font-size:.85em;margin-top:1em"><a href="/">&larr; search</a> &middot; <a href="/corpus">corpus tables</a> &middot; <a href="/about">about</a></p>
+<h1>The Daily Colonist, 1925 &mdash; Comparative OCR Report</h1>
+<p class="sub">Four OCR generations on identical scans, measured without ground truth: dictionary rates, engine confidences, damage signatures, and findability. Generated <span id="gen"></span>.</p>
+<hr class="rule">
+
+<h2>Live findability check</h2>
+<p class="note">Pages matching a word, per arm, at exact spelling and Lucene fuzzy distance 1 and 2 (engine maximum). A large jump from exact to ~2 signals damaged spellings in that arm's text. VLM column here is Phase&nbsp;1's live index and includes AI image-description text; all other report sections use ink-only text. <span class="tag">image descriptions are AI-generated</span></p>
+<p><input type="text" id="fq" placeholder="one word, e.g. esquimalt"> <button onclick="runFuzzy()">Count</button></p>
+<div id="fout"></div>
+
+<h2>Headline measures</h2>
+<div class="grid">
+<div class="chartbox"><canvas id="cWords"></canvas></div>
+<div class="chartbox"><canvas id="cRec"></canvas></div>
+</div>
+<p class="note">Recognized = share of &ge;4-character tokens attested &ge;3&times; in the corpus-derived 1925 lexicon (built from Tesseract output, so the measure slightly favors Tesseract; other arms leading is despite that handicap).</p>
+
+<h2>Vocabulary: the damage signature</h2>
+<div class="grid">
+<div class="chartbox"><canvas id="cVocab"></canvas></div>
+<div class="chartbox"><canvas id="cLen"></canvas></div>
+</div>
+<p class="note" id="vocabnote"></p>
+
+<h2>Engine confidence</h2>
+<div class="grid">
+<div class="chartbox"><canvas id="cConfT"></canvas></div>
+<div class="chartbox"><canvas id="cConfA"></canvas></div>
+</div>
+<p class="note">Real per-word confidences exist for Tesseract (TSV) and ABBYY (hOCR x_wconf). The VLM reports none; the hybrid's analogue is its provenance distribution (see the text view of any page).</p>
+
+<h2>Selected words: tokens and pages per arm</h2>
+<div id="wordtable"></div>
+<p class="note">Tokens = occurrences in ink-only text; pages = pages with &ge;1 occurrence. Image-description column counts pages whose AI-generated descriptions match. <span class="tag">AI-generated</span></p>
+
+<h2>Variant census: how each engine breaks a word</h2>
+<p class="note">Vocabulary entries within edit distance 3 of the target, occurring &ge;3&times; (top 12 per arm). Legitimate period forms (e.g. <i>esquimau</i>) appear alongside damage; the pattern, not any single row, is the signal.</p>
+<p>Word: <select id="vsel" onchange="renderVariants()"></select></p>
+<div class="grid" id="varout" style="grid-template-columns:1fr 1fr 1fr 1fr"></div>
+
+<h2>Monthly mentions</h2>
+<p>Word: <select id="msel" onchange="renderMonthly()"></select></p>
+<div class="chartbox" style="height:340px"><canvas id="cMonth"></canvas></div>
+<p class="note">Token counts by publication month (issue dates from the project's date table). Divergence between arms on the same ink is findability, not history.</p>
+
+<h2>Vocabulary overlap</h2>
+<div id="overlap"></div>
+
+<script>
+var D = __DATA__;
+var ARMS = ['tesseract','vlm','abbyy','hybrid'];
+var LABEL = {tesseract:'Tesseract 5', vlm:'VLM (ink only)', abbyy:'ABBYY ~2015', hybrid:'Hybrid'};
+var COLOR = {tesseract:'#8a8a8a', vlm:'#1a4d8f', abbyy:'#a06f14', hybrid:'#35619e'};
+document.getElementById('gen').textContent = D.generated;
+
+function bar(id, title, vals, opts) {
+  new Chart(document.getElementById(id), {type:'bar',
+    data:{labels:ARMS.map(a=>LABEL[a]),
+          datasets:[{data:vals, backgroundColor:ARMS.map(a=>COLOR[a])}]},
+    options:Object.assign({plugins:{title:{display:true,text:title},legend:{display:false}},
+      maintainAspectRatio:false}, opts||{})});
+}
+bar('cWords','Total words (millions)', ARMS.map(a=>D.arms[a].total_words/1e6));
+bar('cRec','Dictionary-recognized %', ARMS.map(a=>D.arms[a].recognized_pct));
+bar('cVocab','Unique forms (log scale)', ARMS.map(a=>D.arms[a].unique),
+    {scales:{y:{type:'logarithmic'}}});
+document.getElementById('vocabnote').textContent =
+  'ABBYY: ' + D.arms.abbyy.unique.toLocaleString() + ' unique forms — ' +
+  D.vocab_overlap.exclusive.abbyy.toLocaleString() + ' exclusive to it (damage as vocabulary). ' +
+  'Hybrid: ' + D.arms.hybrid.unique.toLocaleString() + ' forms, only ' +
+  D.vocab_overlap.exclusive.hybrid.toLocaleString() + ' exclusive — the tightest vocabulary discipline of any arm.';
+
+new Chart(document.getElementById('cLen'), {type:'line',
+  data:{labels:[...Array(19)].map((_,i)=>i+2),
+    datasets:ARMS.map(a=>({label:LABEL[a], borderColor:COLOR[a], fill:false, pointRadius:0,
+      data:[...Array(19)].map((_,i)=>(D.arms[a].len_dist[String(i+2)]||0)/D.arms[a].total_words*100)}))},
+  options:{plugins:{title:{display:true,text:'Word-length distribution (% of words)'}},
+    maintainAspectRatio:false, scales:{x:{title:{display:true,text:'characters'}}}}});
+
+function confChart(id, arm, title) {
+  var h = D.arms[arm].conf_hist || {};
+  var buckets = [...Array(10)].map((_,i)=>i*10);
+  new Chart(document.getElementById(id), {type:'bar',
+    data:{labels:buckets.map(b=>b+'–'+(b+9)),
+      datasets:[{data:buckets.map(b=>h[String(b)]||0), backgroundColor:COLOR[arm]}]},
+    options:{plugins:{title:{display:true,text:title},legend:{display:false}},
+      maintainAspectRatio:false}});
+}
+confChart('cConfT','tesseract','Tesseract word confidence');
+confChart('cConfA','abbyy','ABBYY word confidence (x_wconf)');
+
+(function wordTable(){
+  var rows = ['<table><tr><th>word</th>'];
+  ARMS.forEach(a=>rows.push('<th class="n" colspan="2">'+LABEL[a]+'<br><span style="font-size:.8em">tokens · pages</span></th>'));
+  rows.push('<th class="n">img desc<br><span style="font-size:.8em">pages</span></th></tr>');
+  var maxTok = Math.max(...D.words.map(w=>Math.max(...ARMS.map(a=>D.arms[a].word_tokens[w]||0))));
+  D.words.forEach(function(w){
+    rows.push('<tr><td>'+w+'</td>');
+    ARMS.forEach(function(a){
+      var t = D.arms[a].word_tokens[w]||0, p = D.arms[a].word_pages[w]||0;
+      rows.push('<td class="n">'+t.toLocaleString()+'<span class="bar" style="width:'+(t/maxTok*60)+'px"></span></td>'+
+                '<td class="n" style="color:#666">'+p.toLocaleString()+'</td>');
+    });
+    rows.push('<td class="n">'+(D.image_desc.word_pages[w]||0)+'</td></tr>');
+  });
+  rows.push('</table>');
+  document.getElementById('wordtable').innerHTML = rows.join('');
+})();
+
+var vt = Object.keys(D.arms.hybrid.variants);
+vt.forEach(function(w){
+  ['vsel','msel'].forEach(function(id){});
+  var o = document.createElement('option'); o.value=o.textContent=w;
+  document.getElementById('vsel').appendChild(o);
+});
+D.words.forEach(function(w){
+  var o = document.createElement('option'); o.value=o.textContent=w;
+  document.getElementById('msel').appendChild(o);
+});
+function renderVariants(){
+  var w = document.getElementById('vsel').value;
+  var out = ARMS.map(function(a){
+    var vs = (D.arms[a].variants[w]||[]).slice(0,12);
+    return '<div><b>'+LABEL[a]+'</b><div class="varcol">'+
+      (vs.length ? vs.map(v=>v[0]+' <span style="color:#999">'+v[1]+'</span>').join('<br>') : '<i>none &ge;3</i>')+
+      '</div></div>';
+  });
+  document.getElementById('varout').innerHTML = out.join('');
+}
+renderVariants();
+
+var monthChart = null;
+function renderMonthly(){
+  var w = document.getElementById('msel').value;
+  var months = [...Array(12)].map((_,i)=>'1925-'+String(i+1).padStart(2,'0'));
+  if (monthChart) monthChart.destroy();
+  monthChart = new Chart(document.getElementById('cMonth'), {type:'line',
+    data:{labels:months, datasets:ARMS.map(a=>({label:LABEL[a], borderColor:COLOR[a], fill:false,
+      data:months.map(m=>(D.arms[a].word_monthly[w]||{})[m]||0)}))},
+    options:{plugins:{title:{display:true,text:'"'+w+'" tokens by month'}}, maintainAspectRatio:false}});
+}
+renderMonthly();
+
+document.getElementById('overlap').innerHTML =
+  '<table><tr><th>measure</th><th class="n">forms</th></tr>' +
+  '<tr><td>union of all four vocabularies</td><td class="n">'+D.vocab_overlap.union.toLocaleString()+'</td></tr>' +
+  '<tr><td>shared by all four</td><td class="n">'+D.vocab_overlap.all_four.toLocaleString()+'</td></tr>' +
+  ARMS.map(a=>'<tr><td>exclusive to '+LABEL[a]+'</td><td class="n">'+D.vocab_overlap.exclusive[a].toLocaleString()+'</td></tr>').join('') +
+  '</table>';
+
+function runFuzzy(){
+  var q = document.getElementById('fq').value.trim();
+  if (!q) return;
+  document.getElementById('fout').innerHTML = 'counting…';
+  fetch('/fuzzy?q=' + encodeURIComponent(q)).then(r=>r.json()).then(function(d){
+    if (d.error) { document.getElementById('fout').innerHTML = d.error; return; }
+    var pops = ['tesseract','vlm','abbyy','hybrid','image_desc'];
+    var pl = {tesseract:'Tesseract', vlm:'VLM (incl. AI descriptions)', abbyy:'ABBYY', hybrid:'Hybrid', image_desc:'Image descriptions (AI)'};
+    var h = '<table><tr><th>arm</th><th class="n">exact</th><th class="n">~1</th><th class="n">~2</th></tr>';
+    pops.forEach(function(p){
+      var c = d.counts[p];
+      h += '<tr><td>'+pl[p]+'</td><td class="n">'+(c.exact??'—')+'</td><td class="n">'+(c.f1??'—')+'</td><td class="n">'+(c.f2??'—')+'</td></tr>';
+    });
+    document.getElementById('fout').innerHTML = h + '</table>';
+  });
+}
+document.getElementById('fq').addEventListener('keydown', function(e){ if(e.key==='Enter') runFuzzy(); });
+</script></body></html>
