@@ -87,10 +87,6 @@ The twelve `tests/test_*.py` scripts are the development record: each pipeline s
 4. **Paths, ports, and endpoints are the project machine's.** Expect to edit constants.
 5. `docs/PROJECT_STATE_PHASE2.md` is the project's working state file, published as-is as the development record — including failures and their repairs.
 
-## Citation
-
-If you use this code or approach, please cite: [FILL when published].
-
 ## Acknowledgements
 
 [FILL]. Scans digitized by the University of Victoria Libraries; hosted by the Internet Archive. The solr-ocrhighlighting plugin is by dbmdz (Munich Digitization Centre, Bavarian State Library).
