@@ -3,9 +3,9 @@
 A word-level merge of two OCR engines' readings of the 1925 *Daily Colonist* (312 issues, 6,647 newspaper pages): the text of a vision-language model (PaddleOCR-VL) combined with the measured word positions and confidence scores of Tesseract 5, with every disagreement decided by explicit rules, undecidable disagreements indexed under both readings, regions the model missed rescued from Tesseract's output, and a provenance class recorded for every word. Indexed in Solr with word-level highlighting; served through a IIIF/Mirador viewer with a per-word provenance display; compared against the collection's existing ABBYY-era search layer, which was downloaded and indexed as a fourth arm.
 
 **Institution:** University of Victoria Libraries
-**Author:** [FILL]
+**Author:** Corey Davis
 **Phase 1 (the two source pipelines this phase merges):** https://github.com/coreyleedavis/daily-colonist-1925-dual-ocr
-**License:** [FILL — MIT pending confirmation]
+**License:** MIT License
 
 **In-depth documentation:** [How the merge works](docs/phase2-merge-technical-note.md) — the complete method, stage by stage, with the rationale for each decision, the full annotated sources, and the prior work this approach descends from.
 
