@@ -89,4 +89,4 @@ The twelve `tests/test_*.py` scripts are the development record: each pipeline s
 
 ## Acknowledgements
 
-[FILL]. Scans digitized by the University of Victoria Libraries; hosted by the Internet Archive. The solr-ocrhighlighting plugin is by dbmdz (Munich Digitization Centre, Bavarian State Library).
+Scans digitized by the University of Victoria Libraries; hosted by the Internet Archive. The solr-ocrhighlighting plugin is by dbmdz (Munich Digitization Centre, Bavarian State Library).
