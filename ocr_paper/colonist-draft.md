@@ -1,6 +1,7 @@
 # Building a Provenance-Tracked Hybrid of Classical OCR and a Vision-Language Model for a Year of *The Daily Colonist*
 
 **Corey Davis, University of Victoria Libraries**
+DRAFT Thu Jul 30 2026
 
 ## Abstract
 
